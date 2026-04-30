@@ -1,28 +1,82 @@
-# AI Research Analyst Agent
+# ⬡ Research Analyst Agent
 
-A production-grade RAG + LangGraph agent that ingests research papers, PDFs, and web content — then answers questions with citations.
+A production-grade RAG + LangGraph agent that ingests research papers, PDFs, and web content — then answers questions with inline citations.
+
+---
 
 ## Stack
-- **LLM**: Groq API — `llama-3.3-70b-versatile` (GPT OSS 120B)
-- **Embeddings**: `all-MiniLM-L6-v2` via sentence-transformers (free, local)
-- **Vector store**: Chroma (local persistent)
-- **Metadata DB**: SQLite via SQLAlchemy
-- **Agent**: LangGraph (planner → retriever → web_search → synthesizer)
-- **Observability**: LangSmith (optional)
+
+| Layer | Technology |
+|---|---|
+| LLM | Groq API — `llama-3.3-70b-versatile` (GPT OSS 120B) |
+| Embeddings | `all-MiniLM-L6-v2` via sentence-transformers (free, local) |
+| Vector store | Qdrant (local on-disk, no server needed) |
+| Metadata DB | SQLite via SQLAlchemy |
+| Agent | LangGraph (planner → retriever → web search → synthesizer) |
+| UI | Streamlit |
+| Observability | LangSmith (optional) |
+
+---
+
+## Project Structure
+
+```
+research_agent/
+│
+├── .streamlit/
+│   └── config.toml              # Streamlit theme config
+│
+├── agent/
+│   ├── __init__.py
+│   ├── graph.py                 # LangGraph StateGraph
+│   ├── nodes.py                 # planner, retriever, synthesizer nodes
+│   └── tools.py                 # retrieve_chunks + search_web tools
+│
+├── ingestion/
+│   ├── __init__.py
+│   ├── pdf_loader.py            # PyMuPDF → LangChain Documents
+│   ├── web_loader.py            # URL scraper → Documents
+│   └── pipeline.py              # chunk → embed → store orchestrator
+│
+├── storage/
+│   ├── __init__.py
+│   ├── database.py              # SQLite models + session factory
+│   └── vector_store.py          # Qdrant wrapper + similarity search
+│
+├── utils/
+│   ├── __init__.py
+│   └── config.py                # Pydantic settings from .env
+│
+├── data/                        # gitignored
+│   ├── papers/                  # drop PDFs here
+│   ├── qdrant_db/               # auto-created on first ingest
+│   └── metadata.db              # auto-created on first ingest
+│
+├── app.py                       # Streamlit UI
+├── main.py                      # CLI entry point
+├── requirements.txt
+├── .env                         # gitignored — your API keys
+├── .env.example                 # committed — template
+├── .gitignore
+└── README.md
+```
 
 ---
 
 ## Setup
 
 ```bash
-# 1. Create virtual environment
+# 1. Clone and enter the project
+cd research_analyst_agent
+
+# 2. Create a virtual environment
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-# 2. Install dependencies
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# 3. Configure environment
+# 4. Configure environment
 cp .env.example .env
 # Open .env and set your GROQ_API_KEY
 ```
@@ -31,80 +85,51 @@ cp .env.example .env
 
 ## Usage
 
-### Ingest a PDF
+### Streamlit UI (recommended)
 ```bash
-python main.py ingest pdf data/papers/attention.pdf --tags transformers,nlp
+streamlit run app.py
 ```
+Opens at `http://localhost:8501` with three pages:
+- **01 · Chat** — ask questions, get cited answers
+- **02 · Ingest** — upload PDFs or paste URLs
+- **03 · Library** — browse, filter, and delete documents
 
-### Ingest a web page
+### CLI
 ```bash
-python main.py ingest url https://arxiv.org/abs/1706.03762 --tags transformers
-```
+# Ingest a PDF
+python main.py ingest pdf data/papers/llama2.pdf --tags "llama,meta,llm"
 
-### List all ingested documents
-```bash
+# Ingest a web page
+python main.py ingest url https://arxiv.org/abs/2307.09288 --tags "llama,meta"
+
+# List all ingested documents
 python main.py list
-```
 
-### Ask a research question
-```bash
-python main.py ask "What attention mechanism did Vaswani et al. introduce?"
+# Ask a research question
+python main.py ask "How did Meta approach RLHF in LLaMA 2?"
 
-# Force web search in addition to knowledge base
-python main.py ask "Latest LLM benchmarks in 2025" --web
-```
-
----
-
-## Project Structure
-
-```
-research_agent/
-├── main.py                    # CLI entry point
-├── requirements.txt
-├── .env.example
-│
-├── ingestion/
-│   ├── pdf_loader.py          # PyMuPDF → LangChain Documents
-│   ├── web_loader.py          # URL → clean text → Documents
-│   └── pipeline.py            # chunk → embed → store (orchestrator)
-│
-├── storage/
-│   ├── database.py            # SQLite models + session factory
-│   └── vector_store.py        # Chroma wrapper (local + OpenAI embeddings)
-│
-├── agent/
-│   ├── graph.py               # LangGraph StateGraph definition
-│   ├── nodes.py               # planner, retriever, web_search, synthesizer
-│   └── tools.py               # retrieve_chunks + search_web tools
-│
-├── utils/
-│   └── config.py              # Pydantic settings from .env
-│
-└── data/
-    ├── papers/                # drop PDFs here
-    ├── chroma_db/             # auto-created on first ingest
-    └── metadata.db            # auto-created on first ingest
+# Force web search alongside KB lookup
+python main.py ask "Latest LLM benchmarks" --web
 ```
 
 ---
 
-## Agent flow
+## Agent Flow
 
 ```
 User query
     │
     ▼
-[Planner]        Creates a retrieval plan
+[Planner]       Creates a retrieval strategy
     │
     ▼
-[Retriever]      Searches Chroma with primary + rephrased query
+[Retriever]     Searches Qdrant with primary + rephrased query
     │
     ▼
-[Web Search]     Runs if KB results are thin (or --web flag)
+[Web Search]    Runs only if KB results are thin (or --web flag)
     │
     ▼
-[Synthesizer]    GPT OSS 120B synthesizes answer with inline citations
+[Synthesizer]   LLaMA 3.3 70B writes answer with inline citations
     │
     ▼
 Cited answer (Markdown)
@@ -112,11 +137,26 @@ Cited answer (Markdown)
 
 ---
 
-## Build status
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `GROQ_API_KEY` | ✅ | Your Groq API key (console.groq.com) |
+| `GROQ_MODEL` | optional | Default: `llama-3.3-70b-versatile` |
+| `EMBEDDING_PROVIDER` | optional | `local` (default) or `openai` |
+| `LANGCHAIN_TRACING_V2` | optional | Set `true` to enable LangSmith tracing |
+| `LANGCHAIN_API_KEY` | optional | LangSmith API key |
+| `TAVILY_API_KEY` | optional | Enables live web search tool |
+
+---
+
+## Build Status
+
 - ✅ Ingestion pipeline (PDF + URL)
-- ✅ Chroma vector store + local embeddings
+- ✅ Qdrant vector store (local, lightweight)
 - ✅ SQLite metadata store
 - ✅ LangGraph agent (planner → retriever → web search → synthesizer)
-- ✅ CLI with ingest / list / ask commands
-- ⬜ LangSmith tracing (add keys to .env to enable)
-- ⬜ Tavily web search (add TAVILY_API_KEY to .env to enable)
+- ✅ Streamlit UI (chat, ingest, library)
+- ✅ CLI interface
+- ⬜ LangSmith tracing (add keys to `.env` to enable)
+- ⬜ Tavily web search (add `TAVILY_API_KEY` to `.env` to enable)
