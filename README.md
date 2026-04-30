@@ -149,14 +149,3 @@ Cited answer (Markdown)
 | `TAVILY_API_KEY` | optional | Enables live web search tool |
 
 ---
-
-## Build Status
-
-- ✅ Ingestion pipeline (PDF + URL)
-- ✅ Qdrant vector store (local, lightweight)
-- ✅ SQLite metadata store
-- ✅ LangGraph agent (planner → retriever → web search → synthesizer)
-- ✅ Streamlit UI (chat, ingest, library)
-- ✅ CLI interface
-- ⬜ LangSmith tracing (add keys to `.env` to enable)
-- ⬜ Tavily web search (add `TAVILY_API_KEY` to `.env` to enable)
