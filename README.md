@@ -85,7 +85,7 @@ cp .env.example .env
 
 ## Usage
 
-### Streamlit UI (recommended)
+### Streamlit UI 
 ```bash
 streamlit run app.py
 ```
