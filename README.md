@@ -146,10 +146,10 @@ Then open `.env` and add the required API keys.
 
 | Variable | Required | Description |
 |---|---|---|
-| `GROQ_API_KEY` | Yes | Groq API key for the main LLM. [cite:171] |
-| `GROQ_MODEL` | No | Defaults to `llama-3.3-70b-versatile`. [cite:171] |
+| `GROQ_API_KEY` | Yes | Groq API key for the main LLM. |
+| `GROQ_MODEL` | No | Defaults to `llama-3.3-70b-versatile`. |
 | `EMBEDDING_PROVIDER` | No | `local` by default; can be extended later. |
-| `LANGCHAIN_TRACING_V2` | No | Set to `true` to enable LangSmith tracing. [cite:169] |
+| `LANGCHAIN_TRACING_V2` | No | Set to `true` to enable LangSmith tracing. |
 | `LANGCHAIN_API_KEY` | No | LangSmith API key. |
 | `TAVILY_API_KEY` | No | Enables live web search in the graph. |
 
