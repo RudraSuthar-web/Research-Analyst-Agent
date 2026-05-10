@@ -1,240 +1,146 @@
-# Research Analyst Agent
+# ⬡ Research Analyst Agent
 
-A production-grade RAG + LangGraph agent that ingests research papers, PDFs, and web content, then answers questions with inline citations. The stack uses LangGraph for stateful orchestration, Qdrant in local mode for on-disk vector storage, and Groq-hosted `llama-3.3-70b-versatile` for generation.
+A production-grade RAG + LangGraph agent that ingests research papers, PDFs, and web content — then answers questions with inline citations.
 
-## Overview
+---
 
-Research Analyst Agent is designed as a practical AI research workflow rather than a simple “chat with PDF” demo. It combines document ingestion, semantic retrieval, optional live web search, and citation-aware synthesis into a single pipeline that can be used from either a Streamlit UI or a CLI.
-
-The architecture is optimized for local development on modest hardware. Qdrant supports local persistence without requiring a separate server process in its local integration mode, while Groq handles the heavy LLM inference remotely.
-
-## Features
-
-- Ingest PDF research papers into a local searchable knowledge base.
-- Ingest web pages and use them alongside local documents for grounded answers.
-- Run a LangGraph workflow with planner, retriever, sufficiency check, optional web search, synthesizer, and verifier stages.
-- Store embeddings in Qdrant with local on-disk persistence.
-- Store document metadata and library state in SQLite through SQLAlchemy.
-- Use local sentence-transformer embeddings with `all-MiniLM-L6-v2` to avoid paid embedding APIs.
-- Query the system through Streamlit or CLI.
-- Optionally enable LangSmith tracing for observability and debugging.
-
-## Architecture
-
-The agent follows a retrieval-first workflow so that answers stay grounded in ingested material whenever possible. Web search is used only when the local knowledge base is insufficient or when the user explicitly requests live search.
-
-```text
-User query
-   ↓
-[Planner]
-   ↓
-[Retriever]
-   ↓
-[Sufficiency Check]
-   ├── enough evidence ──→ [Synthesizer]
-   └── weak evidence ────→ [Web Search]
-                              ↓
-                          [Synthesizer]
-                              ↓
-                     [Verifier / Citation Check]
-                              ↓
-                     Final cited markdown answer
-```
-
-This graph structure fits LangGraph well because LangGraph is designed for stateful, node-based workflows where conditional routing is part of the core execution model.
-
-## Tech Stack
+## Stack
 
 | Layer | Technology |
 |---|---|
-| LLM | Groq API — `llama-3.3-70b-versatile` |
-| Embeddings | `all-MiniLM-L6-v2` via sentence-transformers |
-| Vector Store | Qdrant local mode with on-disk persistence |
+| LLM | Groq API — `llama-3.3-70b-versatile` (GPT OSS 120B) |
+| Embeddings | `all-MiniLM-L6-v2` via sentence-transformers (free, local) |
+| Vector store | Qdrant (local on-disk, no server needed) |
 | Metadata DB | SQLite via SQLAlchemy |
-| Agent Runtime | LangGraph StateGraph |
-| UI | Streamlit |
+| Agent | LangGraph (planner → retriever → web search → synthesizer) |
 | Observability | LangSmith (optional) |
-| Optional Search | Tavily or another web-search provider |
+
+---
 
 ## Project Structure
 
-```text
+```
 research_agent/
-│
-├── .streamlit/
-│   └── config.toml
 │
 ├── agent/
 │   ├── __init__.py
-│   ├── graph.py
-│   ├── nodes.py
-│   └── tools.py
+│   ├── graph.py                 # LangGraph StateGraph
+│   ├── nodes.py                 # planner, retriever, synthesizer nodes
+│   └── tools.py                 # retrieve_chunks + search_web tools
 │
 ├── ingestion/
 │   ├── __init__.py
-│   ├── pdf_loader.py
-│   ├── web_loader.py
-│   └── pipeline.py
+│   ├── pdf_loader.py            # PyMuPDF → LangChain Documents
+│   ├── web_loader.py            # URL scraper → Documents
+│   └── pipeline.py              # chunk → embed → store orchestrator
 │
 ├── storage/
 │   ├── __init__.py
-│   ├── database.py
-│   └── vector_store.py
+│   ├── database.py              # SQLite models + session factory
+│   └── vector_store.py          # Qdrant wrapper + similarity search
 │
 ├── utils/
 │   ├── __init__.py
-│   └── config.py
+│   └── config.py                # Pydantic settings from .env
 │
-├── data/
-│   ├── papers/
-│   ├── qdrant_db/
-│   └── metadata.db
+├── data/                        # gitignored
+│   ├── papers/                  # drop PDFs here
+│   ├── qdrant_db/               # auto-created on first ingest
+│   └── metadata.db              # auto-created on first ingest
 │
-├── app.py
-├── main.py
+├── main.py                      # CLI entry point
 ├── requirements.txt
-├── .env
-├── .env.example
+├── .env                         # gitignored — your API keys
+├── .env.example                 # committed — template
 ├── .gitignore
 └── README.md
 ```
 
+---
+
 ## Setup
 
-### 1. Clone and enter the project
-
 ```bash
+# 1. Clone and enter the project
 cd research_analyst_agent
-```
 
-### 2. Create data directories
-
-```bash
-mkdir -p data/papers
-```
-
-This directory is gitignored and stores uploaded PDFs, vector data, and metadata.
-
-### 3. Create a virtual environment
-
-```bash
+# 2. Create a virtual environment
 python -m venv .venv
-source .venv/bin/activate
-```
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-For Windows:
-
-```bash
-.venv\Scripts\activate
-```
-
-### 4. Install dependencies
-
-```bash
+# 3. Install dependencies
 pip install -r requirements.txt
+
+# 4. Configure environment
+cp .env.example .env
+# Open .env and set your GROQ_API_KEY
 ```
 
-### 5. Configure environment variables
+---
+
+## Usage
 
 ```bash
-cp .env.example .env
+# Ingest a PDF
+python main.py ingest pdf "data/papers/llama2.pdf" --tags "llama,meta,llm"
+
+# Ingest a web page
+python main.py ingest url https://arxiv.org/abs/2307.09288 --tags "llama,meta"
+
+# List all ingested documents
+python main.py list
+
+# Ask a research question
+python main.py ask "How did Meta approach RLHF in LLaMA 2?"
+
+# Force web search alongside KB lookup
+python main.py ask "Latest LLM benchmarks" --web
 ```
 
-Then open `.env` and add the required API keys.
+---
+
+## Agent Flow
+
+```
+User query
+    │
+    ▼
+[Planner]       Creates a retrieval strategy
+    │
+    ▼
+[Retriever]     Searches Qdrant with primary + rephrased query
+    │
+    ▼
+[Web Search]    Runs only if KB results are thin (or --web flag)
+    │
+    ▼
+[Synthesizer]   LLaMA 3.3 70B writes answer with inline citations
+    │
+    ▼
+Cited answer (Markdown)
+```
+
+---
 
 ## Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `GROQ_API_KEY` | Yes | Groq API key for the main LLM. |
-| `GROQ_MODEL` | No | Defaults to `llama-3.3-70b-versatile`. |
-| `EMBEDDING_PROVIDER` | No | `local` by default; can be extended later. |
-| `LANGCHAIN_TRACING_V2` | No | Set to `true` to enable LangSmith tracing. |
-| `LANGCHAIN_API_KEY` | No | LangSmith API key. |
-| `TAVILY_API_KEY` | No | Enables live web search in the graph. |
+| `GROQ_API_KEY` | ✅ | Your Groq API key (console.groq.com) |
+| `GROQ_MODEL` | optional | Default: `llama-3.3-70b-versatile` |
+| `EMBEDDING_PROVIDER` | optional | `local` (default) or `openai` |
+| `LANGCHAIN_TRACING_V2` | optional | Set `true` to enable LangSmith tracing |
+| `LANGCHAIN_API_KEY` | optional | LangSmith API key |
+| `TAVILY_API_KEY` | ✅ | Enables live web search tool |
 
-## Usage
+---
 
-### Streamlit UI
+## Build Status
 
-```bash
-streamlit run app.py
-```
-
-The app opens at `http://localhost:8501` and can be organized into three views:
-
-- **Chat** — ask questions and receive cited answers.
-- **Ingest** — upload PDFs or submit URLs for indexing.
-- **Library** — browse, filter, and remove ingested sources.
-
-### CLI
-
-Ingest a PDF:
-
-```bash
-python main.py ingest pdf data/papers/llama2.pdf --tags "llama,meta,llm"
-```
-
-Ingest a web page:
-
-```bash
-python main.py ingest url https://arxiv.org/abs/2307.09288 --tags "llama,meta"
-```
-
-List ingested documents:
-
-```bash
-python main.py list
-```
-
-Ask a question:
-
-```bash
-python main.py ask "How did Meta approach RLHF in LLaMA 2?"
-```
-
-Force web search:
-
-```bash
-python main.py ask "Latest LLM benchmarks" --web
-```
-
-## Ingestion Pipeline
-
-The ingestion flow should convert raw inputs into normalized LangChain-style documents, split them into chunks, generate embeddings, and write both vectors and metadata to local storage. This separation keeps indexing work outside the interactive question-answering path, which improves responsiveness and makes the project more production-like.
-
-Typical flow:
-
-1. Load PDF or web content.
-2. Clean and normalize text.
-3. Chunk text with overlap.
-4. Generate embeddings.
-5. Store vectors in Qdrant.
-6. Store source metadata in SQLite.
-
-## Why Qdrant
-
-Qdrant was chosen over Chroma because it provides a cleaner path from local development to a more production-oriented vector database setup. LangChain documents direct Qdrant integration, including local persistence modes that work well for lightweight projects.
-
-This is especially useful for machines with limited resources, since the architecture can stay local for development while still resembling a production RAG stack.
-
-## Why LangGraph
-
-LangGraph is a strong fit for this project because the workflow is not a single prompt call. It includes conditional routing, retrieval, optional search, synthesis, and verification, which are exactly the kinds of stateful graph patterns LangGraph is meant to handle.
-
-Using LangGraph also makes the system easier to extend with additional nodes later, such as contradiction detection, research-gap analysis, paper clustering, or methodology review.
-
-## Future Improvements
-
-- Add reranking before synthesis to improve chunk selection quality.
-- Add paper comparison tables and evidence matrices.
-- Add contradiction detection across sources.
-- Add research-gap identification for differentiated research analysis workflows.
-- Add user feedback logging and answer evaluation.
-- Add export to Markdown or PDF reports.
-- Add background ingestion jobs for large batches of papers.
-
-## Notes
-
-This project is intentionally designed to be feasible on older hardware by keeping embeddings local and sending only the reasoning/generation step to the Groq API. For best results, ingest documents in small batches and avoid indexing very large paper collections all at once.
-
+- ✅ Ingestion pipeline (PDF + URL)
+- ✅ Qdrant vector store (local, lightweight)
+- ✅ SQLite metadata store
+- ✅ LangGraph agent (planner → retriever → web search → synthesizer)
+- ✅ CLI interface
+- ⬜ LangSmith tracing (add keys to `.env` to enable)
+- ⬜ Tavily web search (add `TAVILY_API_KEY` to `.env` to enable)
