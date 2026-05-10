@@ -1,6 +1,25 @@
 # ⬡ Research Analyst Agent
 
-A production-grade RAG + LangGraph agent that ingests research papers, PDFs, and web content — then answers questions with inline citations.
+A production-grade RAG + LangGraph agent that ingests research papers, PDFs, and web content, then answers questions with inline citations. The stack uses LangGraph for stateful orchestration, Qdrant in local mode for on-disk vector storage, and Groq-hosted `llama-3.3-70b-versatile` for generation.
+
+---
+
+## Overview
+Research Analyst Agent is designed as a practical AI research workflow rather than a simple “chat with PDF” demo. It combines document ingestion, semantic retrieval, optional live web search, and citation-aware synthesis into a single pipeline that can be used from either a Streamlit UI or a CLI.
+
+The architecture is optimized for local development on modest hardware. Qdrant supports local persistence without requiring a separate server process in its local integration mode, while Groq handles the heavy LLM inference remotely.
+
+---
+
+## Features
+- Ingest PDF research papers into a local searchable knowledge base.
+- Ingest web pages and use them alongside local documents for grounded answers.
+- Run a LangGraph workflow with planner, retriever, sufficiency check, optional web search, synthesizer, and verifier stages.
+- Store embeddings in Qdrant with local on-disk persistence.
+- Store document metadata and library state in SQLite through SQLAlchemy.
+- Use local sentence-transformer embeddings with `all-MiniLM-L6-v2` to avoid paid embedding APIs.
+- Query the system through CLI.
+- Optionally enable LangSmith tracing for observability and debugging.
 
 ---
 
