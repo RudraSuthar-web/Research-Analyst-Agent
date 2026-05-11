@@ -169,10 +169,9 @@ Cited answer (Markdown)
 
 ### Version 2 — Planned
 - ⬜ Multi-agent architecture — specialized agents working in parallel (e.g. retrieval agent, critique agent, citation agent, summarization agent)
-- ⬜ Agent-to-agent communication via LangGraph supervisor pattern
+- ⬜ Agent-to-agent communication
 - ⬜ Each agent independently callable or composable into larger workflows
 - ⬜ Expanded tool set per agent (code execution, chart generation, comparison tables)
-- ⬜ Persistent memory across sessions
 
 ---
 
