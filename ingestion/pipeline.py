@@ -1,7 +1,7 @@
 """
 ingestion/pipeline.py
 Orchestrates the full ingestion flow:
-  load → chunk → embed → store in Chroma + SQLite
+  load → chunk → embed → store in Qdrant + SQLite
 """
 from typing import Optional
 

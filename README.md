@@ -5,13 +5,15 @@ A production-grade RAG + LangGraph agent that ingests research papers, PDFs, and
 ---
 
 ## Overview
-Research Analyst Agent is designed as a practical AI research workflow rather than a simple “chat with PDF” demo. It combines document ingestion, semantic retrieval, optional live web search, and citation-aware synthesis into a single pipeline that can be used from a CLI.
+
+Research Analyst Agent is designed as a practical AI research workflow rather than a simple "chat with PDF" demo. It combines document ingestion, semantic retrieval, optional live web search, and citation-aware synthesis into a single pipeline that can be used from a CLI.
 
 The architecture is optimized for local development on modest hardware. Qdrant supports local persistence without requiring a separate server process in its local integration mode, while Groq handles the heavy LLM inference remotely.
 
 ---
 
 ## Features
+
 - Ingest PDF research papers into a local searchable knowledge base.
 - Ingest web pages and use them alongside local documents for grounded answers.
 - Run a LangGraph workflow with planner, retriever, sufficiency check, optional web search, synthesizer, and verifier stages.
@@ -150,12 +152,13 @@ Cited answer (Markdown)
 | `EMBEDDING_PROVIDER` | optional | `local` (default) or `openai` |
 | `LANGCHAIN_TRACING_V2` | optional | Set `true` to enable LangSmith tracing |
 | `LANGCHAIN_API_KEY` | optional | LangSmith API key |
-| `TAVILY_API_KEY` | ✅ | Enables live web search tool |
+| `TAVILY_API_KEY` | optional | Enables live web search tool |
 
 ---
 
 ## Build Status
 
+### Version 1 — Current
 - ✅ Ingestion pipeline (PDF + URL)
 - ✅ Qdrant vector store (local, lightweight)
 - ✅ SQLite metadata store
@@ -163,3 +166,19 @@ Cited answer (Markdown)
 - ✅ CLI interface
 - ⬜ LangSmith tracing (add keys to `.env` to enable)
 - ⬜ Tavily web search (add `TAVILY_API_KEY` to `.env` to enable)
+
+### Version 2 — Planned
+- ⬜ Multi-agent architecture — specialized agents working in parallel (e.g. retrieval agent, critique agent, citation agent, summarization agent)
+- ⬜ Agent-to-agent communication via LangGraph supervisor pattern
+- ⬜ Each agent independently callable or composable into larger workflows
+- ⬜ Expanded tool set per agent (code execution, chart generation, comparison tables)
+- ⬜ Persistent memory across sessions
+
+---
+
+## Versioning
+
+| Version | Status | Description |
+|---|---|---|
+| v1.0 | ✅ Current | Single-agent RAG pipeline with CLI |
+| v2.0 | 🗓 Planned | Multi-agent system with specialized roles and supervisor orchestration |
