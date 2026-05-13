@@ -177,11 +177,8 @@ The planner node was removed in v1.1 — it added several seconds of latency wit
 
 - ⬜ Multi-agent architecture — specialized agents coordinated by a LangGraph supervisor
 - ⬜ Dedicated agents for retrieval, critique, citation formatting, and summarization
-- ⬜ Gemma 3 2B (local via Ollama) for lightweight preprocessing — query rephrasing, relevance scoring, tag extraction
-- ⬜ Groq LLaMA 70B reserved for heavy reasoning — planning and synthesis only
 - ⬜ Agent-to-agent communication via LangGraph supervisor pattern
 - ⬜ Expanded tool set per agent (code execution, comparison tables, chart generation)
-- ⬜ Persistent memory across sessions
 
 ---
 
@@ -191,4 +188,4 @@ The planner node was removed in v1.1 — it added several seconds of latency wit
 |---|---|---|
 | v1.0 | ✅ Shipped | Single-agent RAG pipeline with CLI |
 | v1.1 | ✅ Current | Streaming output, planner removed, 60–70% faster TTFT |
-| v2.0 | 🗓 Planned | Multi-agent system with Gemma 3 2B + LLaMA 70B hybrid |
+| v2.0 | 🗓 Planned | Multi-agent system |
