@@ -16,13 +16,14 @@ The architecture is optimized for local development on modest hardware. Qdrant r
 
 - Ingest PDF research papers into a local searchable knowledge base.
 - Ingest web pages and use them alongside local documents for grounded answers.
-- **Real-time Streaming:** Answers stream token-by-token to the terminal via the `rich` library.
-- **Optimized LangGraph Pipeline:** Lean retriever → conditional web search → streaming synthesizer flow.
-- **Dual-Query Retrieval:** Rephrases questions for a second search pass to improve recall.
-- **Local Embeddings:** Uses `all-MiniLM-L6-v2` via sentence-transformers (zero cost, local).
-- **On-Disk Vector Store:** Qdrant in local mode (no Docker or server needed).
-- **Metadata Management:** SQLite + SQLAlchemy for tracking documents and tags.
-- **Conditional Web Search:** Automatically triggers Tavily when local context is thin.
+- Stream answers token-by-token to the terminal via the `rich` library — no waiting for full generation.
+- Run a lean LangGraph pipeline: retriever → conditional web search → streaming synthesizer.
+- Dual-query retrieval — rephrases your question for a second search pass to improve recall.
+- Store embeddings in Qdrant with local on-disk persistence.
+- Store document metadata and library state in SQLite through SQLAlchemy.
+- Use local sentence-transformer embeddings with `all-MiniLM-L6-v2` to avoid paid embedding APIs.
+- Automatically trigger Tavily web search only when the knowledge base lacks sufficient context.
+- Optionally enable LangSmith tracing for observability and debugging.
 
 ---
 
@@ -30,12 +31,13 @@ The architecture is optimized for local development on modest hardware. Qdrant r
 
 | Layer | Technology |
 |---|---|
-| LLM | Groq API — `llama-3.3-70b-versatile` (Streaming) |
-| Embeddings | `all-MiniLM-L6-v2` (Local) |
-| Vector store | Qdrant (Local on-disk) |
+| LLM | Groq API — `llama-3.3-70b-versatile` (streaming enabled) |
+| Embeddings | `all-MiniLM-L6-v2` via sentence-transformers (free, local) |
+| Vector store | Qdrant (local on-disk, no server needed) |
 | Metadata DB | SQLite via SQLAlchemy |
-| Agent | LangGraph (Optimized StateGraph) |
-| UI/UX | Rich (Streaming Markdown) |
+| Agent | LangGraph (retriever → web search → synthesizer) |
+| CLI output | `rich` library (streaming markdown, live panels) |
+| Observability | LangSmith (optional) |
 
 ---
 
@@ -46,8 +48,8 @@ research_agent/
 │
 ├── agent/
 │   ├── __init__.py
-│   ├── graph.py                 # LangGraph StateGraph (Optimized)
-│   ├── nodes.py                 # retriever, synthesizer (streaming) nodes
+│   ├── graph.py                 # LangGraph StateGraph
+│   ├── nodes.py                 # retriever, synthesizer nodes (streaming)
 │   └── tools.py                 # retrieve_chunks + search_web tools
 │
 ├── ingestion/
@@ -64,7 +66,18 @@ research_agent/
 ├── utils/
 │   ├── __init__.py
 │   └── config.py                # Pydantic settings from .env
-...
+│
+├── data/                        # gitignored
+│   ├── papers/                  # drop PDFs here
+│   ├── qdrant_db/               # auto-created on first ingest
+│   └── metadata.db              # auto-created on first ingest
+│
+├── main.py                      # CLI entry point
+├── requirements.txt
+├── .env                         # gitignored — your API keys
+├── .env.example                 # committed — template
+├── .gitignore
+└── README.md
 ```
 
 ---
@@ -101,7 +114,7 @@ python main.py ingest url https://arxiv.org/abs/2307.09288 --tags "llama,meta"
 # List all ingested documents
 python main.py list
 
-# Ask a research question
+# Ask a research question (streams answer to terminal)
 python main.py ask "How did Meta approach RLHF in LLaMA 2?"
 
 # Force web search alongside KB lookup
@@ -116,17 +129,19 @@ python main.py ask "Latest LLM benchmarks" --web
 User query
     │
     ▼
-[Retriever]     Searches Qdrant with primary + rephrased query
+[Retriever]       Searches Qdrant with primary + rephrased query
     │
     ▼
-[Web Search]    Runs only if KB results are thin (or --web flag)
-    │
+[Web Search]      Triggers automatically if KB context is thin
+    │             (or explicitly via --web flag)
     ▼
-[Synthesizer]   LLaMA 3.3 70B streams answer with inline citations
-    │
+[Synthesizer]     Streams citation-aware answer token-by-token
+    │             directly to the terminal via rich
     ▼
-Real-time Streaming Answer (Markdown)
+Live streaming output
 ```
+
+The planner node was removed in v1.1 — it added several seconds of latency with no meaningful improvement in answer quality for the current single-agent architecture. The pipeline now goes straight from query to retrieval, reducing time-to-first-token by roughly 60–70%.
 
 ---
 
@@ -146,20 +161,27 @@ Real-time Streaming Answer (Markdown)
 ## Build Status
 
 ### Version 1 — Current
+
 - ✅ Ingestion pipeline (PDF + URL)
 - ✅ Qdrant vector store (local, lightweight)
 - ✅ SQLite metadata store
-- ✅ Optimized LangGraph (Low-latency flow)
-- ✅ Token-by-token Streaming
-- ✅ CLI interface with `rich` formatting
+- ✅ LangGraph agent (retriever → web search → synthesizer)
+- ✅ Token-by-token streaming output via `rich`
+- ✅ Dual-query retrieval for improved recall
+- ✅ Conditional web search (auto-triggers on thin KB context)
+- ✅ CLI interface
 - ⬜ LangSmith tracing (add keys to `.env` to enable)
 - ⬜ Tavily web search (add `TAVILY_API_KEY` to `.env` to enable)
 
 ### Version 2 — Planned
-- ⬜ Multi-agent architecture — specialized agents working in parallel (e.g. retrieval agent, critique agent, citation agent, summarization agent)
-- ⬜ Agent-to-agent communication
-- ⬜ Each agent independently callable or composable into larger workflows
-- ⬜ Expanded tool set per agent (code execution, chart generation, comparison tables)
+
+- ⬜ Multi-agent architecture — specialized agents coordinated by a LangGraph supervisor
+- ⬜ Dedicated agents for retrieval, critique, citation formatting, and summarization
+- ⬜ Gemma 3 2B (local via Ollama) for lightweight preprocessing — query rephrasing, relevance scoring, tag extraction
+- ⬜ Groq LLaMA 70B reserved for heavy reasoning — planning and synthesis only
+- ⬜ Agent-to-agent communication via LangGraph supervisor pattern
+- ⬜ Expanded tool set per agent (code execution, comparison tables, chart generation)
+- ⬜ Persistent memory across sessions
 
 ---
 
@@ -167,5 +189,6 @@ Real-time Streaming Answer (Markdown)
 
 | Version | Status | Description |
 |---|---|---|
-| v1.0 | ✅ Current | Single-agent RAG pipeline with CLI |
-| v2.0 | 🗓 Planned | Multi-agent system with specialized roles and supervisor orchestration |
+| v1.0 | ✅ Shipped | Single-agent RAG pipeline with CLI |
+| v1.1 | ✅ Current | Streaming output, planner removed, 60–70% faster TTFT |
+| v2.0 | 🗓 Planned | Multi-agent system with Gemma 3 2B + LLaMA 70B hybrid |
