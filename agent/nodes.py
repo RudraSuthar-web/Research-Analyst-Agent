@@ -9,6 +9,8 @@ from typing import Any
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from rich.console import Console
+from rich.live import Live
+from rich.markdown import Markdown
 
 from agent.tools import AGENT_TOOLS, retrieve_chunks, search_web
 from utils.config import settings
@@ -22,6 +24,7 @@ def get_llm(temperature: float = 0.1) -> ChatGroq:
         api_key=settings.GROQ_API_KEY,
         temperature=temperature,
         max_tokens=4096,
+        streaming=True
     )
 
 
@@ -118,6 +121,7 @@ def web_search_node(state: dict) -> dict:
 def synthesizer_node(state: dict) -> dict:
     """
     Synthesizes all retrieved context into a coherent answer.
+    Streams the output to the console for better user experience.
     """
     console.print("[bold blue]✍️  Synthesizing answer...[/bold blue]")
 
@@ -144,7 +148,14 @@ def synthesizer_node(state: dict) -> dict:
             "End with a 'Sources used' section listing all cited documents."
         ))
     ]
-    response = llm.invoke(messages)
+    
+    full_response = ""
+    console.rule("[dim]Answer[/dim]")
+    
+    with Live(Markdown(""), auto_refresh=False, console=console) as live:
+        for chunk in llm.stream(messages):
+            full_response += chunk.content
+            live.update(Markdown(full_response), refresh=True)
 
-    console.print("[green]✓ Answer synthesized[/green]")
-    return {"answer": response.content}
+    console.rule()
+    return {"answer": full_response}

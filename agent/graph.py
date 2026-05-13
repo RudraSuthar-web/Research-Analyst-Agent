@@ -9,9 +9,9 @@ Flow:
 """
 from typing import TypedDict, Optional
 from langgraph.graph import StateGraph, END
+from langchain_core.messages import HumanMessage
 
 from agent.nodes import (
-    planner_node,
     retriever_node,
     web_search_node,
     synthesizer_node,
@@ -21,7 +21,6 @@ from agent.nodes import (
 # ── Agent state schema ────────────────────────────────────────────────────────
 class AgentState(TypedDict):
     query:             str
-    plan:              Optional[str]
     messages:          list
     retrieved_context: Optional[str]
     web_context:       Optional[str]
@@ -34,16 +33,14 @@ def build_graph():
     graph = StateGraph(AgentState)
 
     # Register nodes
-    graph.add_node("planner",    planner_node)
     graph.add_node("retriever",  retriever_node)
     graph.add_node("web_search", web_search_node)
     graph.add_node("synthesizer",synthesizer_node)
 
     # Entry point
-    graph.set_entry_point("planner")
+    graph.set_entry_point("retriever")
 
     # Edges
-    graph.add_edge("planner",    "retriever")
     graph.add_edge("retriever",  "web_search")
     graph.add_edge("web_search", "synthesizer")
     graph.add_edge("synthesizer", END)
@@ -68,8 +65,7 @@ def run_agent(query: str, force_web_search: bool = False) -> str:
     """
     initial_state: AgentState = {
         "query":             query,
-        "plan":              None,
-        "messages":          [],
+        "messages":          [HumanMessage(content=query)],
         "retrieved_context": None,
         "web_context":       None,
         "answer":            None,

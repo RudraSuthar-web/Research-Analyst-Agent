@@ -62,16 +62,12 @@ def cmd_list(args):
 
 def cmd_ask(args):
     from agent.graph import run_agent
-    from rich.markdown import Markdown
 
     console.print(f"\n[bold cyan]Query:[/bold cyan] {args.query}\n")
     console.rule("[dim]Agent running[/dim]")
 
-    answer = run_agent(args.query, force_web_search=args.web)
-
-    console.rule("[dim]Answer[/dim]")
-    console.print(Markdown(answer))
-    console.rule()
+    # The synthesizer_node now handles streaming the answer directly to console
+    run_agent(args.query, force_web_search=args.web)
 
 
 def build_parser():
