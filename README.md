@@ -1,14 +1,14 @@
 # ⬡ Research Analyst Agent
 
-A production-grade RAG + LangGraph agent that ingests research papers, PDFs, and web content, then answers questions with inline citations. The stack uses LangGraph for stateful orchestration, Qdrant in local mode for on-disk vector storage, and Groq-hosted `llama-3.3-70b-versatile` for generation.
+A production-grade RAG + LangGraph agent that ingests research papers, PDFs, and web content, then streams citation-aware answers directly to your terminal. The stack uses LangGraph for stateful orchestration, Qdrant in local mode for on-disk vector storage, and Groq-hosted `llama-3.3-70b-versatile` for generation.
 
 ---
 
 ## Overview
 
-Research Analyst Agent is designed as a practical AI research workflow rather than a simple "chat with PDF" demo. It combines document ingestion, semantic retrieval, optional live web search, and citation-aware synthesis into a single pipeline that can be used from a CLI.
+Research Analyst Agent is designed as a practical AI research workflow rather than a simple "chat with PDF" demo. It combines document ingestion, semantic retrieval, optional live web search, and citation-aware synthesis into a single streamlined pipeline operated from the CLI.
 
-The architecture is optimized for local development on modest hardware. Qdrant supports local persistence without requiring a separate server process in its local integration mode, while Groq handles the heavy LLM inference remotely.
+The architecture is optimized for local development on modest hardware. Qdrant runs without a separate server process, sentence-transformers handle embeddings locally at zero API cost, and the agent streams responses token-by-token so you see output immediately rather than waiting for full generation.
 
 ---
 
@@ -16,12 +16,13 @@ The architecture is optimized for local development on modest hardware. Qdrant s
 
 - Ingest PDF research papers into a local searchable knowledge base.
 - Ingest web pages and use them alongside local documents for grounded answers.
-- Run a LangGraph workflow with planner, retriever, sufficiency check, optional web search, synthesizer, and verifier stages.
-- Store embeddings in Qdrant with local on-disk persistence.
-- Store document metadata and library state in SQLite through SQLAlchemy.
-- Use local sentence-transformer embeddings with `all-MiniLM-L6-v2` to avoid paid embedding APIs.
-- Query the system through CLI.
-- Optionally enable LangSmith tracing for observability and debugging.
+- **Real-time Streaming:** Answers stream token-by-token to the terminal via the `rich` library.
+- **Optimized LangGraph Pipeline:** Lean retriever → conditional web search → streaming synthesizer flow.
+- **Dual-Query Retrieval:** Rephrases questions for a second search pass to improve recall.
+- **Local Embeddings:** Uses `all-MiniLM-L6-v2` via sentence-transformers (zero cost, local).
+- **On-Disk Vector Store:** Qdrant in local mode (no Docker or server needed).
+- **Metadata Management:** SQLite + SQLAlchemy for tracking documents and tags.
+- **Conditional Web Search:** Automatically triggers Tavily when local context is thin.
 
 ---
 
@@ -29,12 +30,12 @@ The architecture is optimized for local development on modest hardware. Qdrant s
 
 | Layer | Technology |
 |---|---|
-| LLM | Groq API — `llama-3.3-70b-versatile` (GPT OSS 120B) |
-| Embeddings | `all-MiniLM-L6-v2` via sentence-transformers (free, local) |
-| Vector store | Qdrant (local on-disk, no server needed) |
+| LLM | Groq API — `llama-3.3-70b-versatile` (Streaming) |
+| Embeddings | `all-MiniLM-L6-v2` (Local) |
+| Vector store | Qdrant (Local on-disk) |
 | Metadata DB | SQLite via SQLAlchemy |
-| Agent | LangGraph (planner → retriever → web search → synthesizer) |
-| Observability | LangSmith (optional) |
+| Agent | LangGraph (Optimized StateGraph) |
+| UI/UX | Rich (Streaming Markdown) |
 
 ---
 
@@ -45,8 +46,8 @@ research_agent/
 │
 ├── agent/
 │   ├── __init__.py
-│   ├── graph.py                 # LangGraph StateGraph
-│   ├── nodes.py                 # planner, retriever, synthesizer nodes
+│   ├── graph.py                 # LangGraph StateGraph (Optimized)
+│   ├── nodes.py                 # retriever, synthesizer (streaming) nodes
 │   └── tools.py                 # retrieve_chunks + search_web tools
 │
 ├── ingestion/
@@ -63,18 +64,7 @@ research_agent/
 ├── utils/
 │   ├── __init__.py
 │   └── config.py                # Pydantic settings from .env
-│
-├── data/                        # gitignored
-│   ├── papers/                  # drop PDFs here
-│   ├── qdrant_db/               # auto-created on first ingest
-│   └── metadata.db              # auto-created on first ingest
-│
-├── main.py                      # CLI entry point
-├── requirements.txt
-├── .env                         # gitignored — your API keys
-├── .env.example                 # committed — template
-├── .gitignore
-└── README.md
+...
 ```
 
 ---
@@ -126,19 +116,16 @@ python main.py ask "Latest LLM benchmarks" --web
 User query
     │
     ▼
-[Planner]       Creates a retrieval strategy
-    │
-    ▼
 [Retriever]     Searches Qdrant with primary + rephrased query
     │
     ▼
 [Web Search]    Runs only if KB results are thin (or --web flag)
     │
     ▼
-[Synthesizer]   LLaMA 3.3 70B writes answer with inline citations
+[Synthesizer]   LLaMA 3.3 70B streams answer with inline citations
     │
     ▼
-Cited answer (Markdown)
+Real-time Streaming Answer (Markdown)
 ```
 
 ---
@@ -162,8 +149,9 @@ Cited answer (Markdown)
 - ✅ Ingestion pipeline (PDF + URL)
 - ✅ Qdrant vector store (local, lightweight)
 - ✅ SQLite metadata store
-- ✅ LangGraph agent (planner → retriever → web search → synthesizer)
-- ✅ CLI interface
+- ✅ Optimized LangGraph (Low-latency flow)
+- ✅ Token-by-token Streaming
+- ✅ CLI interface with `rich` formatting
 - ⬜ LangSmith tracing (add keys to `.env` to enable)
 - ⬜ Tavily web search (add `TAVILY_API_KEY` to `.env` to enable)
 
