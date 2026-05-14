@@ -15,13 +15,13 @@ import sys
 from rich.console import Console
 from rich.table import Table
 
-from ingestion.pipeline import ingest_pdf, ingest_url
 from storage.database import get_session, Document as DBDocument
 
 console = Console()
 
 
 def cmd_ingest(args):
+    from ingestion.pipeline import ingest_pdf, ingest_url
     tags = [t.strip() for t in args.tags.split(",")] if args.tags else []
     if args.type == "pdf":
         ingest_pdf(args.source, tags=tags)

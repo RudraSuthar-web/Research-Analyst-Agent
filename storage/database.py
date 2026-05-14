@@ -47,9 +47,11 @@ def init_db() -> sessionmaker:
     return sessionmaker(bind=engine)
 
 
-# Module-level session factory (initialised on first import)
-SessionFactory: sessionmaker = init_db()
-
+# Module-level session factory (initialised on first use)
+_SessionFactory = None
 
 def get_session() -> Session:
-    return SessionFactory()
+    global _SessionFactory
+    if _SessionFactory is None:
+        _SessionFactory = init_db()
+    return _SessionFactory()

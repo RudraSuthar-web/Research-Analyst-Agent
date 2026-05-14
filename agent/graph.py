@@ -48,8 +48,14 @@ def build_graph():
     return graph.compile()
 
 
-# Module-level compiled graph (import and call directly)
-agent_graph = build_graph()
+# Module-level compiled graph (initialised on first use)
+_agent_graph = None
+
+def get_graph():
+    global _agent_graph
+    if _agent_graph is None:
+        _agent_graph = build_graph()
+    return _agent_graph
 
 
 def run_agent(query: str, force_web_search: bool = False) -> str:
@@ -72,5 +78,5 @@ def run_agent(query: str, force_web_search: bool = False) -> str:
         "force_web_search":  force_web_search,
     }
 
-    final_state = agent_graph.invoke(initial_state)
+    final_state = get_graph().invoke(initial_state)
     return final_state.get("answer", "Agent produced no answer.")

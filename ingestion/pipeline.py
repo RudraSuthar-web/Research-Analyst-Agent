@@ -5,7 +5,6 @@ Orchestrates the full ingestion flow:
 """
 from typing import Optional
 
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from rich.console import Console
 
 from ingestion.pdf_loader import load_pdf
@@ -15,14 +14,20 @@ from storage.database import get_session, Document as DBDocument
 
 console = Console()
 
-# Key decision: chunk size 800 tokens, 100 overlap.
-# Larger chunks = more context per result; smaller = more precise retrieval.
-SPLITTER = RecursiveCharacterTextSplitter(
-    chunk_size=800,
-    chunk_overlap=100,
-    length_function=len,
-    separators=["\n\n", "\n", ". ", " ", ""],
-)
+_SPLITTER = None
+
+def get_splitter():
+    global _SPLITTER
+    if _SPLITTER is None:
+        # Move heavy import inside the function to speed up script startup
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+        _SPLITTER = RecursiveCharacterTextSplitter(
+            chunk_size=800,
+            chunk_overlap=100,
+            length_function=len,
+            separators=["\n\n", "\n", ". ", " ", ""],
+        )
+    return _SPLITTER
 
 
 def _already_ingested(doc_id: str) -> bool:
@@ -55,7 +60,7 @@ def ingest_pdf(file_path: str, tags: Optional[list[str]] = None) -> dict:
         console.print(f"[yellow]⚠ Already ingested:[/yellow] {title}")
         return {"status": "skipped", "doc_id": doc_id, "title": title}
 
-    chunks = SPLITTER.split_documents(pages)
+    chunks = get_splitter().split_documents(pages)
     # Tag each chunk with the stable doc_id for later filtering
     for chunk in chunks:
         chunk.metadata["doc_id"] = doc_id
@@ -80,7 +85,7 @@ def ingest_url(url: str, tags: Optional[list[str]] = None) -> dict:
         console.print(f"[yellow]⚠ Already ingested:[/yellow] {title}")
         return {"status": "skipped", "doc_id": doc_id, "title": title}
 
-    chunks = SPLITTER.split_documents(docs)
+    chunks = get_splitter().split_documents(docs)
     for chunk in chunks:
         chunk.metadata["doc_id"] = doc_id
 
